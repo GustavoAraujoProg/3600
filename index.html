@@ -1199,6 +1199,63 @@
         }
 
         // ============= SISTEMA DE HOTSPOTS ============= 
+        addDirectTouchEvents(element, data) 
+    console.log(`🎯 Adicionando eventos diretos para: ${data.label}`);
+    
+    // Detectar se é mobile
+    const isMobile = window.innerWidth <= 768 || 'ontouchstart' in window;
+    
+    if (isMobile) {
+        // EVENTOS TOUCH DIRETOS NO ELEMENTO
+        let touchStartTime = 0;
+        let touchStartPos = { x: 0, y: 0 };
+        
+        element.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            touchStartTime = Date.now();
+            touchStartPos.x = e.touches[0].clientX;
+            touchStartPos.y = e.touches[0].clientY;
+            
+            // Feedback visual
+            element.style.transform = 'scale(1.2)';
+            element.style.background = '#007bff';
+            
+            console.log(`📱 Touch start no hotspot: ${data.label}`);
+        });
+        
+        element.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const touchDuration = Date.now() - touchStartTime;
+            const deltaX = Math.abs(e.changedTouches[0].clientX - touchStartPos.x);
+            const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartPos.y);
+            
+            // Resetar visual
+            element.style.transform = 'scale(1)';
+            element.style.background = 'rgba(128, 128, 128, 0.9)';
+            
+            // Se foi um toque rápido e sem movimento
+            if (touchDuration < 500 && deltaX < 20 && deltaY < 20) {
+                console.log(`🚀 HOTSPOT 3D ATIVADO: ${data.label}`);
+                this.activateHotspot(data);
+            }
+        });
+        
+        element.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        });
+    }
+    
+    // EVENTO CLICK PARA DESKTOP
+    element.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log(`🖱️ Click no hotspot: ${data.label}`);
+        this.activateHotspot(data);
+    });
+        
         class InteractiveHotspotSystem {
             constructor(scene, camera, renderer) {
                 this.scene = scene;
@@ -1207,6 +1264,8 @@
                 this.hotspots = [];
                 this.hotspotsData = this.getHotspotsData();
                 console.log("✅ Sistema de hotspots inicializado");
+
+                
             }
             
             getHotspotsData() {
@@ -1250,93 +1309,106 @@
             }
             
             createSingleHotspot(data, index) {
-                if (!THREE) {
-                    console.error('THREE.js não disponível');
-                    return;
-                }
-                
-                const phi = (data.x - 0.5) * Math.PI * 2;
-                const theta = (1 - data.y) * Math.PI;
-                
-                const radius = 480;
-                const x = radius * Math.sin(theta) * Math.cos(phi);
-                const y = radius * Math.cos(theta);
-                const z = radius * Math.sin(theta) * Math.sin(phi);
-                
-                try {
-                    const geometry = new THREE.SphereGeometry(8, 16, 16);
-                    const material = new THREE.MeshBasicMaterial({ 
-                        color: 0x808080,
-                        transparent: true,
-                        opacity: 0.9
-                    });
-                    const marker = new THREE.Mesh(geometry, material);
-                    marker.position.set(x, y, z);
-                    marker.userData = { hotspotData: data, hotspotIndex: index };
-                    this.scene.add(marker);
-                    
-                    const ringGeometry = new THREE.RingGeometry(12, 15, 16);
-                    const ringMaterial = new THREE.MeshBasicMaterial({ 
-                        color: 0xffffff,
-                        transparent: true,
-                        opacity: 0.8,
-                        side: THREE.DoubleSide
-                    });
-                    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-                    ring.position.set(x, y, z);
-                    ring.lookAt(0, 0, 0);
-                    this.scene.add(ring);
-                    
-                    const element = document.createElement('div');
-                    element.className = 'interactive-hotspot';
-                    element.style.display = 'none';
-                    element.title = data.label;
-                    
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'hotspot-tooltip';
-                    tooltip.textContent = data.label;
-                    document.body.appendChild(tooltip);
-                    
-                    this.hotspots.push({
-                        marker,
-                        ring,
-                        element,
-                        tooltip,
-                        data,
-                        position3D: new THREE.Vector3(x, y, z)
-                    });
-                    
-                    console.log(`✅ Hotspot 3D criado: ${data.label}`);
-                } catch (error) {
-                    console.error('Erro ao criar hotspot:', error);
-                }
-            }
+    if (!THREE) {
+        console.error('THREE.js não disponível');
+        return;
+    }
+    
+    const phi = (data.x - 0.5) * Math.PI * 2;
+    const theta = (1 - data.y) * Math.PI;
+    
+    const radius = 480;
+    const x = radius * Math.sin(theta) * Math.cos(phi);
+    const y = radius * Math.cos(theta);
+    const z = radius * Math.sin(theta) * Math.sin(phi);
+    
+    try {
+        const geometry = new THREE.SphereGeometry(8, 16, 16);
+        const material = new THREE.MeshBasicMaterial({ 
+            color: 0x808080,
+            transparent: true,
+            opacity: 0.9
+        });
+        const marker = new THREE.Mesh(geometry, material);
+        marker.position.set(x, y, z);
+        marker.userData = { hotspotData: data, hotspotIndex: index };
+        this.scene.add(marker);
+        
+        const ringGeometry = new THREE.RingGeometry(12, 15, 16);
+        const ringMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.position.set(x, y, z);
+        ring.lookAt(0, 0, 0);
+        this.scene.add(ring);
+        
+        const element = document.createElement('div');
+        element.className = 'interactive-hotspot';
+        element.style.display = 'none';
+        element.title = data.label;
+        element.hasEventListener = false; // Flag para controlar eventos
+        
+        // ADICIONAR AO DOM AGORA
+        document.body.appendChild(element);
+        
+        const tooltip = document.createElement('div');
+        tooltip.className = 'hotspot-tooltip';
+        tooltip.textContent = data.label;
+        document.body.appendChild(tooltip);
+        
+        this.hotspots.push({
+            marker,
+            ring,
+            element,
+            tooltip,
+            data,
+            position3D: new THREE.Vector3(x, y, z)
+        });
+        
+        console.log(`✅ Hotspot 3D criado: ${data.label}`);
+    } catch (error) {
+        console.error('Erro ao criar hotspot:', error);
+    }
+}
             
             updatePositions() {
-                this.hotspots.forEach(hotspot => {
-                    const vector = hotspot.position3D.clone();
-                    vector.project(this.camera);
-                    
-                    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-                    const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
-                    
-                    if (vector.z < 1) {
-                        hotspot.element.style.display = 'block';
-                        hotspot.element.style.left = (x - 15) + 'px';
-                        hotspot.element.style.top = (y - 15) + 'px';
-                        hotspot.element.style.pointerEvents = 'auto';
-                        
-                        if (hotspot.tooltip.classList.contains('visible')) {
-                            hotspot.tooltip.style.left = (x + 15) + 'px';
-                            hotspot.tooltip.style.top = (y - 30) + 'px';
-                        }
-                    } else {
-                        hotspot.element.style.display = 'none';
-                        hotspot.element.style.pointerEvents = 'none';
-                        hotspot.tooltip.classList.remove('visible');
-                    }
-                });
+            this.hotspots.forEach((hotspot, index) => {
+            const vector = hotspot.position3D.clone();
+            vector.project(this.camera);
+            
+            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
+            
+            if (vector.z < 1) {
+            hotspot.element.style.display = 'flex';
+            hotspot.element.style.left = (x - 25) + 'px';
+            hotspot.element.style.top = (y - 25) + 'px';
+            hotspot.element.style.pointerEvents = 'auto';
+            hotspot.element.style.zIndex = '9999';
+            
+            // ADICIONAR EVENTOS DIRETOS NO ELEMENTO (MOBILE)
+            if (!hotspot.element.hasEventListener) {
+                this.addDirectTouchEvents(hotspot.element, hotspot.data);
+                hotspot.element.hasEventListener = true;
             }
+            
+            if (hotspot.tooltip.classList.contains('visible')) {
+                hotspot.tooltip.style.left = (x + 15) + 'px';
+                hotspot.tooltip.style.top = (y - 30) + 'px';
+            }
+        } else {
+            hotspot.element.style.display = 'none';
+            hotspot.element.style.pointerEvents = 'none';
+            hotspot.tooltip.classList.remove('visible');
+        }
+        
+    });
+    
+}
             
             animate() {
                 this.hotspots.forEach(hotspot => {
