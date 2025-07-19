@@ -1,0 +1,2704 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tour Virtual 360° - Sistema VR Aprimorado</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #000;
+            color: #fff;
+            display: block;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: none;
+            z-index: 1;
+            background-color: #000;
+        }
+
+       .interactive-hotspot {
+    position: absolute;
+    width: 25px;
+    height: 25px;
+    background: rgba(128, 128, 128, 0.9);
+    border: 3px solid #ffffff;
+    border-radius: 50%;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 768px) {
+    .interactive-hotspot {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 18px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        z-index: 9999 !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+    }
+    
+    .plan-hotspot {
+        width: 35px !important;
+        height: 35px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+    }
+}
+
+/* MOBILE - HOTSPOTS MAIORES APENAS NO MOBILE */
+@media (max-width: 768px), (pointer: coarse) {
+    .interactive-hotspot {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 18px !important;
+        border: 4px solid #ffffff !important;
+        z-index: 9999 !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        display: flex !important;
+        visibility: visible !important;
+        /* Área de toque mais sensível */
+        min-width: 50px !important;
+        min-height: 50px !important;
+    }
+}
+
+/* Para dispositivos touch */
+@media (pointer: coarse) {
+    .interactive-hotspot {
+        min-width: 50px !important;
+        min-height: 50px !important;
+        z-index: 9999 !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+    }
+    
+    .interactive-hotspot:active {
+        transform: scale(1.4) !important;
+        background: #007bff !important;
+        border-color: #ffffff !important;
+    }
+}
+
+/* Garantir visibilidade em mobile */
+@media (max-width: 1024px) {
+    .interactive-hotspot {
+        z-index: 9999 !important;
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        display: flex !important;
+    }
+}
+        
+        .interactive-hotspot:hover {
+            background: #a0a0a0;
+            transform: scale(1.2);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+        
+       .interactive-hotspot::before {
+    content: '';
+    font-size: 16px;
+    color: white;
+}
+        
+        .hotspot-tooltip {
+            position: fixed;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(30, 30, 30, 0.95));
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            max-width: 220px;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            z-index: 2001;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+        }
+
+        .hotspot-tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hotspot-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: rgba(0, 0, 0, 0.95);
+        }
+
+        #interactive-info-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        
+        #interactive-info-panel.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .interactive-info-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+        
+        .interactive-info-content {
+            font-size: 14px;
+            line-height: 1.4;
+            color: #ccc;
+        }
+
+        #viewer {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            user-select: none;
+        }
+        
+        #viewer:active {
+            cursor: grabbing;
+        }
+
+        /* Botão para abrir a planta */
+        .floor-plan-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2500;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+            backdrop-filter: blur(10px);
+        }
+
+        .floor-plan-toggle:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 12px 35px rgba(59, 130, 246, 0.6);
+        }
+
+        .floor-plan-toggle.active {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+        }
+
+        .toggle-icon {
+            width: 28px;
+            height: 28px;
+            fill: #ffffff;
+        }
+
+        /* Menu da planta baixa */
+        .floor-plan-menu {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            width: 380px;
+            height: 480px;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(20px);
+            z-index: 2000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            transform: translateX(-120%) scale(0.8);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .floor-plan-menu.visible {
+            transform: translateX(0) scale(1);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .menu-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .close-menu-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #ffffff;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .close-menu-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .floor-plan-container {
+            position: relative;
+            width: 100%;
+            height: 100%px;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+
+        .floor-plan-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.98);
+            padding: 12px;
+            box-sizing: border-box;
+        }
+
+        .plan-hotspot {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            color: #ffffff;
+            transition: all 0.3s ease;
+        }
+
+        .plan-hotspot:hover {
+            transform: scale(1.4);
+        }
+
+        .plan-hotspot.active {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            transform: scale(1.3);
+        }
+
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1500;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .menu-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .room-info {
+            position: fixed;
+            bottom: 100px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 20px;
+            border-radius: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+            max-width: 300px;
+        }
+        
+        .room-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #007bff;
+        }
+        
+        .room-description {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.4;
+        }
+        
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('hall.png');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #fff;
+            z-index: 9999;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 1s ease-out, visibility 1s ease-out;
+        }
+
+        #splash-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 0;
+        }
+
+        #splash-screen > * {
+            z-index: 1;
+        }
+
+        .caixa-com-borda {
+            padding: 60px 300px;            
+            width: 200px;
+        }
+
+        .image-b2n {
+            justify-content: center;
+            width: 800px;
+            right: 400px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            border-radius: 10px;
+        }
+
+        #start-tour-btn {
+            background: #cecabe;
+            color: #000;
+            padding: 10px 50px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-top: 110px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.3s ease;
+        }
+
+        #start-tour-btn:hover {
+            background: #4a882e;
+            transform: translateY(-3px);
+        }
+
+        #logo-container {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        #logo-central {
+            border-radius: 100px;
+            width: 70px;
+            height: 60px; 
+            opacity: 0.8;
+            filter: drop-shadow(0px 0px 10px rgba(0, 0, 0, 0.3));
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .hidden {
+            display: none;
+        }
+
+        /* ============= NOVO SISTEMA VR ============= */
+        
+        /* TELA DE SELEÇÃO VR */
+        .vr-selection-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.98));
+            backdrop-filter: blur(20px);
+            z-index: 15000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .vr-selection-screen.visible {
+            opacity: 1;
+        }
+
+        .vr-selection-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .vr-selection-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+            text-align: center;
+            max-width: 500px;
+            line-height: 1.5;
+        }
+
+        .vr-options {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 400px;
+            padding: 0 20px;
+        }
+
+        .vr-option {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(29, 78, 216, 0.2));
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
+        }
+
+        .vr-option:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.8);
+        }
+
+        .vr-option-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 15px;
+            fill: #3b82f6;
+        }
+
+        .vr-option-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        .vr-option-description {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.4;
+        }
+
+        .vr-close-btn {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            color: white;
+            font-size: 24px;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .vr-close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* BOTÃO VR PRINCIPAL - APENAS MOBILE */
+        .vr-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            cursor: pointer;
+            display: none; /* OCULTO POR PADRÃO */
+            align-items: center;
+            justify-content: center;
+            z-index: 2500;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .vr-button:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 12px 35px rgba(59, 130, 246, 0.6);
+        }
+
+        /* MOSTRAR APENAS EM DISPOSITIVOS MÓVEIS */
+        @media (max-width: 1024px) and (pointer: coarse) {
+            .vr-button {
+                display: flex !important;
+            }
+        }
+
+        /* DETECTAR DISPOSITIVOS TOUCH */
+        @media (hover: none) and (pointer: coarse) {
+            .vr-button {
+                display: flex !important;
+            }
+        }
+
+        .vr-icon {
+            width: 35px;
+            height: 35px;
+            fill: #ffffff;
+        }
+
+        /* MODO VR LIVRE (SEM ÓCULOS) */
+        .gyro-mode {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 12000;
+            display: none;
+        }
+
+        .gyro-mode.active {
+            display: block;
+        }
+
+        .gyro-viewer {
+            width: 100%;
+            height: 100%;
+        }
+
+        .gyro-controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 15px 25px;
+            z-index: 12001;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .gyro-status {
+            color: #00ff00;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .gyro-exit {
+            background: rgba(239, 68, 68, 0.2);
+            border: 2px solid #ef4444;
+            border-radius: 10px;
+            color: white;
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .gyro-exit:hover {
+            background: rgba(239, 68, 68, 0.4);
+        }
+
+        /* MODO VR ESTEREOSCÓPICO (COM ÓCULOS) */
+        .stereo-mode {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 13000;
+            display: none;
+            flex-direction: row;
+        }
+
+        .stereo-mode.active {
+            display: flex;
+        }
+
+        .stereo-eye {
+            width: 50%;
+            height: 100%;
+            position: relative;
+            background: #000;
+        }
+
+        .stereo-eye-left {
+            border-right: 2px solid #333;
+        }
+
+        .stereo-eye-right {
+            border-left: 2px solid #333;
+        }
+
+        .stereo-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* MIRA CENTRAL VR */
+        .vr-crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 15001;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .vr-crosshair.show {
+            opacity: 1;
+        }
+
+        .vr-crosshair::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
+        /* CONTROLES VR */
+        .vr-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 15001;
+            display: flex;
+            gap: 10px;
+        }
+
+        .vr-control-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .vr-control-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* PROGRESS BAR GAZE */
+        .vr-progress {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            z-index: 15001;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .vr-progress.show {
+            opacity: 1;
+        }
+
+        .vr-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #00d4aa, #00a8ff);
+            border-radius: 4px;
+            transition: width 0.1s ease;
+        }
+
+        /* NOTIFICAÇÃO VR */
+        .vr-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            font-size: 16px;
+            text-align: center;
+            z-index: 15002;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            max-width: 300px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .vr-notification.show {
+            opacity: 1;
+        }
+
+        /* MOBILE RESPONSIVO E HOTSPOTS OTIMIZADOS */
+        @media (max-width: 768px) {
+            .interactive-hotspot {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+                /* Aumentar área de toque */
+                border: 5px solid #ffffff;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            }
+            
+            .interactive-hotspot:hover,
+            .interactive-hotspot:active,
+            .interactive-hotspot:focus {
+                transform: scale(1.3);
+                background: #a0a0a0;
+            }
+            
+            #interactive-info-panel {
+                right: 10px;
+                top: 80px;
+                max-width: calc(100vw - 40px);
+                left: 10px;
+                right: 10px;
+            }
+            
+            .room-info {
+                bottom: 100px;
+                left: 10px;
+                right: 10px;
+                max-width: none;
+            }
+            
+            .vr-button {
+                bottom: 20px;
+                right: 20px;
+                width: 65px;
+                height: 65px;
+            }
+            
+            .vr-options {
+                gap: 15px;
+                max-width: calc(100vw - 40px);
+                padding: 0 20px;
+            }
+            
+            .vr-option {
+                padding: 20px;
+            }
+            
+            .vr-selection-title {
+                font-size: 24px;
+                padding: 0 20px;
+            }
+            
+            .vr-selection-subtitle {
+                font-size: 15px;
+                padding: 0 20px;
+            }
+            
+            .vr-close-btn {
+                top: 15px;
+                right: 15px;
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+            }
+            
+            .gyro-controls {
+                padding: 10px 15px;
+                top: 15px;
+            }
+            
+            .vr-progress {
+                width: 150px;
+                bottom: 30px;
+            }
+            
+            .floor-plan-toggle {
+                width: 55px;
+                height: 55px;
+                top: 15px;
+                left: 15px;
+            }
+            
+            .floor-plan-menu {
+                top: 75px;
+                left: 15px;
+                right: 15px;
+                width: auto;
+                max-height: calc(100vh - 100px);
+            }
+            
+            .hotspot-tooltip {
+                max-width: 180px;
+                font-size: 13px;
+                padding: 10px 14px;
+            }
+        }
+
+        /* TABLET RESPONSIVO */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .interactive-hotspot {
+                width: 35px;
+                height: 35px;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+            }
+            
+            .vr-button {
+                width: 65px;
+                height: 65px;
+                bottom: 25px;
+                right: 25px;
+            }
+            
+            .floor-plan-menu {
+                width: 350px;
+            }
+        }
+
+        /* MELHORIAS PARA TOUCH */
+        @media (pointer: coarse) {
+            .interactive-hotspot {
+                /* Área de toque maior para dedos */
+                min-width: 44px;
+                min-height: 44px;
+                /* Feedback visual melhor */
+                transition: all 0.2s ease;
+            }
+            
+            .interactive-hotspot:active {
+                transform: scale(1.2);
+                background: #007bff;
+            }
+            
+            /* Remover hover effects em touch */
+            .interactive-hotspot:hover {
+                transform: none;
+                background: rgba(128, 128, 128, 0.9);
+            }
+            
+            .plan-hotspot {
+                min-width: 32px;
+                min-height: 32px;
+            }
+            
+            .floor-plan-toggle,
+            .vr-button,
+            .close-menu-btn {
+                /* Área de toque adequada */
+                min-width: 44px;
+                min-height: 44px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Botão para abrir a planta baixa -->
+    <div class="floor-plan-toggle" id="floorPlanToggle" title="Abrir Planta Baixa">
+        <svg class="toggle-icon" viewBox="0 0 24 24">
+            <path d="M19,2H14V4H19V9H21V4A2,2 0 0,0 19,2M19,10V15H21V10H19M14,20V22H19A2,2 0 0,0 21,20H14M10,2V4H15V2H10M15,20V22H10V20H15M5,2A2,2 0 0,0 3,4V9H5V4H10V2H5M3,10V15H5V10H3M5,20H10V22H5A2,2 0 0,1 3,20V15H5V20Z"/>
+        </svg>
+    </div>
+
+    <!-- Overlay para fechar clicando fora -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+
+    <!-- Menu da planta baixa -->
+    <div class="floor-plan-menu" id="floorPlanMenu">
+        <div class="menu-header">
+            <div class="menu-title">📐 Planta</div>
+            <button class="close-menu-btn" id="closeMenuBtn">×</button>
+        </div>
+
+        <div class="floor-plan-container">
+            <img src="planta1.png" alt="Planta Baixa" class="floor-plan-image" id="floorPlanImage">
+            
+            <!-- Hotspots da planta -->
+            <div class="plan-hotspot" data-room="1" style="top: 20%; left: 15%;">&#128710;</div>
+            <div class="plan-hotspot" data-room="2" style="top: 25%; left: 30%;">2</div>
+            <div class="plan-hotspot" data-room="3" style="top: 30%; left: 45%;">3</div>
+            <div class="plan-hotspot" data-room="4" style="top: 35%; left: 60%;">4</div>
+            <div class="plan-hotspot" data-room="5" style="top: 40%; left: 75%;">5</div>
+            <div class="plan-hotspot" data-room="6" style="top: 45%; left: 85%;">6</div>
+            <div class="plan-hotspot" data-room="7" style="top: 60%; left: 25%;">S1</div>
+            <div class="plan-hotspot" data-room="8" style="top: 65%; left: 40%;">S2</div>
+            <div class="plan-hotspot" data-room="9" style="top: 70%; left: 55%;">S3</div>
+            <div class="plan-hotspot" data-room="10" style="top: 75%; left: 70%;">C</div>
+            <div class="plan-hotspot" data-room="11" style="top: 55%; left: 60%;">Q1</div>
+            <div class="plan-hotspot" data-room="12" style="top: 50%; left: 45%;">Q2</div>
+            <div class="plan-hotspot" data-room="13" style="top: 45%; left: 50%;">B2</div>
+            <div class="plan-hotspot" data-room="14" style="top: 80%; left: 80%;">BS</div>
+            <div class="plan-hotspot" data-room="15" style="top: 85%; left: 65%;">D</div>
+            <div class="plan-hotspot" data-room="16" style="top: 80%; left: 50%;">L</div>
+            <div class="plan-hotspot" data-room="17" style="top: 75%; left: 35%;">LV</div>
+        </div>
+    </div>
+
+    <!-- BOTÃO VR PRINCIPAL -->
+    <div class="vr-button" id="vrButton" title="Modo VR">
+        <svg class="vr-icon" viewBox="0 0 24 24">
+            <path d="M20.84,4.22C20.5,4.08 20.15,4 19.8,4H4.2C3.85,4 3.5,4.08 3.16,4.22C2.44,4.53 2,5.25 2,6V18C2,18.75 2.44,19.47 3.16,19.78C3.5,19.92 3.85,20 4.2,20H19.8C20.15,20 20.5,19.92 20.84,19.78C21.56,19.47 22,18.75 22,18V6C22,5.25 21.56,4.53 20.84,4.22M12,6.5C13.38,6.5 14.5,7.62 14.5,9C14.5,10.38 13.38,11.5 12,11.5C10.62,11.5 9.5,10.38 9.5,9C9.5,7.62 10.62,6.5 12,6.5M7,6.5C8.38,6.5 9.5,7.62 9.5,9C9.5,10.38 8.38,11.5 7,11.5C5.62,11.5 4.5,10.38 4.5,9C4.5,7.62 5.62,6.5 7,6.5M17,6.5C18.38,6.5 19.5,7.62 19.5,9C19.5,10.38 18.38,11.5 17,11.5C15.62,11.5 14.5,10.38 14.5,9C14.5,7.62 15.62,6.5 17,6.5Z"/>
+        </svg>
+    </div>
+
+    <!-- TELA DE SELEÇÃO VR -->
+    <div class="vr-selection-screen" id="vrSelectionScreen">
+        <button class="vr-close-btn" id="vrCloseBtn">×</button>
+        
+        <h1 class="vr-selection-title">🥽 Experiência VR</h1>
+        <p class="vr-selection-subtitle">
+            Escolha como deseja visualizar o tour virtual 360°.<br>
+            Ambos os modos utilizam os sensores de movimento do seu dispositivo.
+        </p>
+        
+        <div class="vr-options">
+            <div class="vr-option" id="gyroModeBtn">
+                <svg class="vr-option-icon" viewBox="0 0 24 24">
+                    <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z"/>
+                </svg>
+                <div class="vr-option-title">📱 Visualização Livre</div>
+                <div class="vr-option-description">
+                    Movimente o celular no espaço para explorar.<br>
+                    Ideal para visualização rápida sem acessórios.
+                </div>
+            </div>
+            
+            <div class="vr-option" id="stereoModeBtn">
+                <svg class="vr-option-icon" viewBox="0 0 24 24">
+                    <path d="M16,6H22V8H21V16H19V8H16V6M2,6H8V8H7V16H5V8H2V6M12.5,9A1.5,1.5 0 0,0 11,10.5V13.5A1.5,1.5 0 0,0 12.5,15A1.5,1.5 0 0,0 14,13.5V10.5A1.5,1.5 0 0,0 12.5,9Z"/>
+                </svg>
+                <div class="vr-option-title">🥽 Modo Imersivo</div>
+                <div class="vr-option-description">
+                    Tela dividida para óculos VR.<br>
+                    Navegação por movimento da cabeça e ativação por olhar.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODO VR LIVRE (GIROSCÓPIO) -->
+    <div class="gyro-mode" id="gyroMode">
+        <div class="gyro-controls">
+            <div class="gyro-status" id="gyroStatus">📱 Modo Livre Ativo</div>
+            <button class="gyro-exit" id="gyroExitBtn">Sair</button>
+        </div>
+        <div class="gyro-viewer" id="gyroViewer"></div>
+    </div>
+
+    <!-- MODO VR ESTEREOSCÓPICO -->
+    <div class="stereo-mode" id="stereoMode">
+        <!-- Controles VR -->
+        <div class="vr-controls">
+            <div class="vr-control-btn" id="stereoExitBtn" title="Sair VR">×</div>
+        </div>
+        
+        <!-- Olho esquerdo -->
+        <div class="stereo-eye stereo-eye-left">
+            <canvas class="stereo-canvas" id="stereoCanvasLeft"></canvas>
+            <div class="vr-crosshair" id="stereoCrosshairLeft"></div>
+        </div>
+        
+        <!-- Olho direito -->
+        <div class="stereo-eye stereo-eye-right">
+            <canvas class="stereo-canvas" id="stereoCanvasRight"></canvas>
+            <div class="vr-crosshair" id="stereoCrosshairRight"></div>
+        </div>
+        
+        <!-- Progress bar para gaze -->
+        <div class="vr-progress" id="stereoProgress">
+            <div class="vr-progress-bar" id="stereoProgressBar"></div>
+        </div>
+    </div>
+
+    <!-- NOTIFICAÇÃO VR -->
+    <div class="vr-notification" id="vrNotification"></div>
+
+    <div id="logo-container">
+        <img src="./logoprincipal.png" alt="Logo b2n Engenharia" id="logo-central">
+    </div>
+
+    <div id="splash-screen">
+        <div class="splash-content">
+            <div class="caixa-com-borda">
+                <img class="image-b2n" src="./b2n.png" alt="Imagem de fundo" style="position: relative; z-index: 1;">
+                <button id="start-tour-btn" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2;">Iniciar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="container">
+        <div id="loading" class="loading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Carregando Tour Virtual...</div>
+        </div>
+        
+        <div id="viewer"></div>
+        
+        <div id="interactive-info-panel">
+            <div class="interactive-info-title">Título</div>
+            <div class="interactive-info-content">Descrição</div>
+        </div>
+        
+        <div class="room-info">
+            <div class="room-title">Carregando...</div>
+            <div class="room-description">Aguarde...</div>
+        </div>
+    </div>
+
+    <script>
+        console.log("🚀 Iniciando sistema VR aprimorado...");
+
+        if (typeof THREE === 'undefined') {
+            console.error('❌ THREE.js não carregou!');
+            alert('Erro: THREE.js não foi carregado.');
+        }
+
+        // ============= SISTEMA DE HOTSPOTS ============= 
+        class InteractiveHotspotSystem {
+            constructor(scene, camera, renderer) {
+                this.scene = scene;
+                this.camera = camera;
+                this.renderer = renderer;
+                this.hotspots = [];
+                this.hotspotsData = this.getHotspotsData();
+                console.log("✅ Sistema de hotspots inicializado");
+            }
+            
+            getHotspotsData() {
+                return {
+                    1: [{ x: 3.10, y: 0.45, target: 2, label: 'Exterior 2' }],
+                    2: [{ x: 0.75, y: 0.40, target: 1, label: 'Exterior 1' }, { x: 0.09, y: 0.48, target: 3, label: 'Exterior 3' }],
+                    3: [{ x: 0.63, y: 0.49, target: 1, label: 'Exterior 1' }, { x: 0.50, y: 0.45, target: 2, label: 'Exterior 2' }, { x: 0.15, y: 0.48, target: 4, label: 'Exterior 4' }],
+                    4: [{ x: 0.65, y: 0.50, target: 1, label: 'Exterior 1' }, { x: 0.61, y: 0.50, target: 2, label: 'Exterior 2' }, { x: 0.69, y: 0.40, target: 3, label: 'Exterior 3' }, { x: 0.9, y: 0.5, target: 5, label: 'Exterior 5' }, { x: 0.10, y: 0.5, target: 7, label: 'Sala 1' }, { x: 0.40, y: 0.5, target: 14, label: 'Banheiro Sauna' }],
+                    5: [{  x: 0.62, y: 0.50, target: 1, label: 'Exterior 1' }, {  x: 0.57, y: 0.50, target: 2, label: 'Exterior 2' }, {  x: 0.59, y: 0.47, target: 3, label: 'Exterior 3' }, {  x: 0.40, y: 0.42, target: 4, label: 'Exterior 4' }, {  x: 0.23, y: 0.45,target: 6, label: 'Exterior 6' }, { x: 0.15, y: 0.5, target: 7, label: 'Sala 1' }, { x: 0.40, y: 0.48, target: 14, label: 'Banheiro Sauna' }],
+                    6: [{ x: 0.15, y: 0.44, target: 7, label: 'Sala 1' }, { x: 0.65, y: 0.50, target: 1, label: 'Exterior 1' }, { x: 0.63, y: 0.47, target: 2, label: 'Exterior 2' }, { x: 0.65, y: 0.47, target: 3, label: 'Exterior 3' }, { x: 0.65, y: 0.40, target: 4, label: 'Exterior 4' }, { x: 0.82, y: 0.48, target: 5, label: 'Exterior 5' }, { x: 0.51, y: 0.48, target: 14, label: 'Banheiro Sauna' }],
+                    7: [{ x: 0.10, y: 0.49, target: 8, label: 'Sala 2' }, { x: 0.92, y: 0.48, target: 9, label: 'Sala 3' }, { x: 0.82, y: 0.50, target: 10, label: 'Cozinha' }, { x: 0.85, y: 0.51, target: 16, label: 'Lavanderia' }, { x: 0.92, y: 0.50, target: 17, label: 'Lavabo' }, { x: 0.87, y: 0.54, target: 12, label: 'Suite 2' }, { x: 0.87, y: 0.51, target: 11, label: 'Suite 1' }, { x: 0.35, y: 0.49, target: 1, label: 'Exterior 1' }, { x: 0.32, y: 0.50, target: 2, label: 'Exterior 2' }, { x: 0.37, y: 0.47, target: 3, label: 'Exterior 3' }, { x: 0.37, y: 0.42, target: 4, label: 'Exterior 4' }, { x: 0.48, y: 0.48, target: 5, label: 'Exterior 5' }, { x: 0.40, y: 0.30, target: 6, label: 'Exterior 6' }, { x: 0.27, y: 0.47, target: 14, label: 'Banheiro Sauna' }],
+                    8: [{ x: 0.84, y: 0.45, target: 7, label: 'Sala 1' }, { x: 0.06, y: 0.45, target: 9, label: 'Sala 3' }, { x: 0.01, y: 0.49, target: 10, label: 'Cozinha' }, { x: 0.06, y: 0.49, target: 17, label: 'Lavabo' }, { x: 0.04, y: 0.50, target: 12, label: 'Suite 2' }, {x: 0.04, y: 0.48, target: 11, label: 'Suite 1' }, { x: 0.75, y: 0.50, target: 6, label: 'Exterior 6' }],
+                    14: [{ x: 0.55, y: 0.28, target: 4, label: 'Exterior 4' }],
+
+                    //Faltam ajustar
+                    9: [{ x: 0.10, y: 0.1, target: 7, label: 'Sala 1' }, { x: 0.2, y: 0.1, target: 8, label: 'Sala 2' }, { x: 0.3, y: 0.1, target: 10, label: 'Cozinha' }, { x: 0.4, y: 0.1, target: 16, label: 'Lavanderia' }, { x: 0.5, y: 0.1, target: 17, label: 'Lavabo' }, { x: 0.6, y: 0.1, target: 12, label: 'Suite 2' }, { x: 0.7, y: 0.1, target: 11, label: 'Suite 1' }, { x: 0.1, y: 0.9, target: 1, label: 'Exterior 1' }, { x: 0.2, y: 0.9, target: 2, label: 'Exterior 2' }, { x: 0.3, y: 0.9, target: 3, label: 'Exterior 3' }, { x: 0.4, y: 0.9, target: 4, label: 'Exterior 4' }, { x: 0.5, y: 0.9, target: 5, label: 'Exterior 5' }, { x: 0.68, y: 0.50, target: 6, label: 'Exterior 6' }],
+                    10: [{ x: 0.1, y: 0.1, target: 7, label: 'Sala 1' }, { x: 0.2, y: 0.1, target: 8, label: 'Sala 2' }, { x: 0.3, y: 0.1, target: 9, label: 'Sala 3' }, { x: 0.4, y: 0.1, target: 16, label: 'Lavanderia' }, { x: 0.5, y: 0.1, target: 17, label: 'Lavabo' }, { x: 0.6, y: 0.1, target: 12, label: 'Suite 2' }, { x: 0.7, y: 0.1, target: 11, label: 'Suite 1' }, { x: 0.1, y: 0.9, target: 1, label: 'Exterior 1' }, { x: 0.2, y: 0.9, target: 2, label: 'Exterior 2' }, { x: 0.3, y: 0.9, target: 3, label: 'Exterior 3' }, { x: 0.4, y: 0.9, target: 4, label: 'Exterior 4' }, { x: 0.5, y: 0.9, target: 5, label: 'Exterior 5' }, { x: 0.6, y: 0.9, target: 6, label: 'Exterior 6' }],
+                    11: [{ x: 0.1, y: 0.1, target: 7, label: 'Sala 1' }, { x: 0.2, y: 0.1, target: 8, label: 'Sala 2' }, { x: 0.3, y: 0.1, target: 9, label: 'Sala 3' }, { x: 0.4, y: 0.1, target: 10, label: 'Cozinha' }, { x: 0.5, y: 0.1, target: 16, label: 'Lavanderia' }, { x: 0.6, y: 0.1, target: 17, label: 'Lavabo' }, { x: 0.7, y: 0.1, target: 12, label: 'Suite 2' }, { x: 0.1, y: 0.9, target: 1, label: 'Exterior 1' }, { x: 0.2, y: 0.9, target: 2, label: 'Exterior 2' }, { x: 0.3, y: 0.9, target: 3, label: 'Exterior 3' }, { x: 0.4, y: 0.9, target: 4, label: 'Exterior 4' }, { x: 0.5, y: 0.9, target: 5, label: 'Exterior 5' }, { x: 0.6, y: 0.9, target: 6, label: 'Exterior 6' }],
+                    12: [{ x: 0.3, y: 0.5, target: 11, label: 'Suite 1' }, { x: 0.7, y: 0.3, target: 13, label: 'Banheiro Suite 2' }, { x: 0.5, y: 0.8, target: 9, label: 'Sala 3' }],
+                    13: [{ x: 0.5, y: 0.8, target: 12, label: 'Suite 2' }],
+                    15: [{ x: 0.1, y: 0.1, target: 7, label: 'Sala 1' }, { x: 0.2, y: 0.1, target: 8, label: 'Sala 2' }, { x: 0.3, y: 0.1, target: 9, label: 'Sala 3' }, { x: 0.4, y: 0.1, target: 10, label: 'Cozinha' }, { x: 0.5, y: 0.1, target: 16, label: 'Lavanderia' }, { x: 0.6, y: 0.1, target: 17, label: 'Lavabo' }, { x: 0.7, y: 0.1, target: 12, label: 'Suite 2' }, { x: 0.8, y: 0.1, target: 11, label: 'Suite 1' }, { x: 0.1, y: 0.9, target: 1, label: 'Exterior 1' }, { x: 0.2, y: 0.9, target: 2, label: 'Exterior 2' }, { x: 0.3, y: 0.9, target: 3, label: 'Exterior 3' }, { x: 0.4, y: 0.9, target: 4, label: 'Exterior 4' }, { x: 0.5, y: 0.9, target: 5, label: 'Exterior 5' }, { x: 0.6, y: 0.9, target: 6, label: 'Exterior 6' }],
+                    16: [{ x: 0.1, y: 0.1, target: 7, label: 'Sala 1' }, { x: 0.2, y: 0.1, target: 8, label: 'Sala 2' }, { x: 0.3, y: 0.1, target: 9, label: 'Sala 3' }, { x: 0.4, y: 0.1, target: 10, label: 'Cozinha' }, { x: 0.5, y: 0.1, target: 15, label: 'Despensa' }, { x: 0.6, y: 0.1, target: 17, label: 'Lavabo' }, { x: 0.7, y: 0.1, target: 12, label: 'Suite 2' }, { x: 0.8, y: 0.1, target: 11, label: 'Suite 1' }, { x: 0.1, y: 0.9, target: 1, label: 'Exterior 1' }, { x: 0.2, y: 0.9, target: 2, label: 'Exterior 2' }, { x: 0.3, y: 0.9, target: 3, label: 'Exterior 3' }, { x: 0.4, y: 0.9, target: 4, label: 'Exterior 4' }, { x: 0.5, y: 0.9, target: 5, label: 'Exterior 5' }, { x: 0.6, y: 0.9, target: 6, label: 'Exterior 6' }],
+                    17: [{ x: 0.1, y: 0.1, target: 7, label: 'Sala 1' }, { x: 0.2, y: 0.1, target: 8, label: 'Sala 2' }, { x: 0.3, y: 0.1, target: 9, label: 'Sala 3' }, { x: 0.4, y: 0.1, target: 10, label: 'Cozinha' }, { x: 0.5, y: 0.1, target: 15, label: 'Despensa' }, { x: 0.6, y: 0.1, target: 16, label: 'Lavanderia' }, { x: 0.7, y: 0.1, target: 12, label: 'Suite 2' }, { x: 0.8, y: 0.1, target: 11, label: 'Suite 1' }, { x: 0.1, y: 0.9, target: 1, label: 'Exterior 1' }, { x: 0.2, y: 0.9, target: 2, label: 'Exterior 2' }, { x: 0.3, y: 0.9, target: 3, label: 'Exterior 3' }, { x: 0.4, y: 0.9, target: 4, label: 'Exterior 4' }, { x: 0.5, y: 0.9, target: 5, label: 'Exterior 5' }, { x: 0.6, y: 0.9, target: 6, label: 'Exterior 6' }]
+                };
+            }
+        
+            createHotspots(roomIndex) {
+                this.clearHotspots();
+                
+                const roomHotspots = this.hotspotsData[roomIndex];
+                if (!roomHotspots) {
+                    console.log(`❌ Nenhum hotspot para cômodo ${roomIndex}`);
+                    return;
+                }
+                
+                console.log(`✅ Criando ${roomHotspots.length} hotspots para cômodo ${roomIndex}`);
+                
+                roomHotspots.forEach((data, index) => {
+                    this.createSingleHotspot(data, index);
+                });
+            }
+            
+            createSingleHotspot(data, index) {
+                if (!THREE) {
+                    console.error('THREE.js não disponível');
+                    return;
+                }
+                
+                const phi = (data.x - 0.5) * Math.PI * 2;
+                const theta = (1 - data.y) * Math.PI;
+                
+                const radius = 480;
+                const x = radius * Math.sin(theta) * Math.cos(phi);
+                const y = radius * Math.cos(theta);
+                const z = radius * Math.sin(theta) * Math.sin(phi);
+                
+                try {
+                    const geometry = new THREE.SphereGeometry(8, 16, 16);
+                    const material = new THREE.MeshBasicMaterial({ 
+                        color: 0x808080,
+                        transparent: true,
+                        opacity: 0.9
+                    });
+                    const marker = new THREE.Mesh(geometry, material);
+                    marker.position.set(x, y, z);
+                    marker.userData = { hotspotData: data, hotspotIndex: index };
+                    this.scene.add(marker);
+                    
+                    const ringGeometry = new THREE.RingGeometry(12, 15, 16);
+                    const ringMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0.8,
+                        side: THREE.DoubleSide
+                    });
+                    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                    ring.position.set(x, y, z);
+                    ring.lookAt(0, 0, 0);
+                    this.scene.add(ring);
+                    
+                    const element = document.createElement('div');
+                    element.className = 'interactive-hotspot';
+                    element.style.display = 'none';
+                    element.title = data.label;
+                    
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'hotspot-tooltip';
+                    tooltip.textContent = data.label;
+                    document.body.appendChild(tooltip);
+                    
+                    this.hotspots.push({
+                        marker,
+                        ring,
+                        element,
+                        tooltip,
+                        data,
+                        position3D: new THREE.Vector3(x, y, z)
+                    });
+                    
+                    console.log(`✅ Hotspot 3D criado: ${data.label}`);
+                } catch (error) {
+                    console.error('Erro ao criar hotspot:', error);
+                }
+            }
+            
+            updatePositions() {
+                this.hotspots.forEach(hotspot => {
+                    const vector = hotspot.position3D.clone();
+                    vector.project(this.camera);
+                    
+                    const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                    const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
+                    
+                    if (vector.z < 1) {
+                        hotspot.element.style.display = 'block';
+                        hotspot.element.style.left = (x - 15) + 'px';
+                        hotspot.element.style.top = (y - 15) + 'px';
+                        hotspot.element.style.pointerEvents = 'auto';
+                        
+                        if (hotspot.tooltip.classList.contains('visible')) {
+                            hotspot.tooltip.style.left = (x + 15) + 'px';
+                            hotspot.tooltip.style.top = (y - 30) + 'px';
+                        }
+                    } else {
+                        hotspot.element.style.display = 'none';
+                        hotspot.element.style.pointerEvents = 'none';
+                        hotspot.tooltip.classList.remove('visible');
+                    }
+                });
+            }
+            
+            animate() {
+                this.hotspots.forEach(hotspot => {
+                    if (hotspot.marker) {
+                        hotspot.marker.rotation.y += 0.01;
+                    }
+                });
+            }
+            
+            activateHotspot(data) {
+                console.log(`🚪 Navegando para: ${data.label}`);
+                this.showInfo(data.label, `Indo para ${data.label}`);
+                this.playSound();
+                
+                if (data.target !== undefined) {
+                    setTimeout(() => {
+                        changeRoom(data.target);
+                        console.log(`✅ Chegou em: ${rooms[data.target].texturePath}`);
+                    }, 800);
+                }
+            }
+            
+            showInfo(title, description) {
+                const panel = document.getElementById('interactive-info-panel');
+                if (panel) {
+                    panel.querySelector('.interactive-info-title').textContent = title;
+                    panel.querySelector('.interactive-info-content').textContent = description;
+                    panel.classList.add('visible');
+                    
+                    setTimeout(() => {
+                        panel.classList.remove('visible');
+                    }, 4000);
+                }
+            }
+            
+            playSound() {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = 800;
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.1);
+                } catch (e) {
+                    console.log('Áudio não disponível');
+                }
+            }
+            
+            clearHotspots() {
+                this.hotspots.forEach(hotspot => {
+                    if (hotspot.marker) this.scene.remove(hotspot.marker);
+                    if (hotspot.ring) this.scene.remove(hotspot.ring);
+                    if (hotspot.tooltip) hotspot.tooltip.remove();
+                });
+                this.hotspots = [];
+            }
+        }
+
+        // ============= SISTEMA VR APRIMORADO ============= 
+        class AdvancedVRSystem {
+            constructor() {
+                this.isVRActive = false;
+                this.currentMode = null; // 'gyro' ou 'stereo'
+                this.gyroEnabled = false;
+                this.orientation = { alpha: 0, beta: 0, gamma: 0 };
+                this.gazeTarget = null;
+                this.gazeStartTime = 0;
+                this.gazeDuration = 2000; // 2 segundos
+                
+                // Elementos DOM
+                this.vrButton = null;
+                this.vrSelectionScreen = null;
+                this.gyroMode = null;
+                this.stereoMode = null;
+                this.vrNotification = null;
+                
+                // Renderizadores para modo estereoscópico
+                this.stereoRendererLeft = null;
+                this.stereoRendererRight = null;
+                this.stereoCameraLeft = null;
+                this.stereoCameraRight = null;
+                
+                // Gyro renderer
+                this.gyroRenderer = null;
+                this.gyroCamera = null;
+            }
+            
+            init() {
+                console.log("🥽 Inicializando sistema VR avançado...");
+                
+                // Aguardar carregamento do tour principal
+                if (!window.scene || !window.camera || !window.renderer) {
+                    setTimeout(() => this.init(), 500);
+                    return;
+                }
+                
+                this.setupElements();
+                this.setupEvents();
+                this.checkDeviceSupport();
+                
+                console.log("✅ Sistema VR avançado inicializado");
+            }
+            
+            setupElements() {
+                this.vrButton = document.getElementById('vrButton');
+                this.vrSelectionScreen = document.getElementById('vrSelectionScreen');
+                this.gyroMode = document.getElementById('gyroMode');
+                this.stereoMode = document.getElementById('stereoMode');
+                this.vrNotification = document.getElementById('vrNotification');
+            }
+            
+            setupEvents() {
+                // Botão principal VR
+                if (this.vrButton) {
+                    this.vrButton.addEventListener('click', () => this.showVRSelection());
+                    this.vrButton.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        this.showVRSelection();
+                    });
+                }
+                
+                // Botão fechar seleção
+                const vrCloseBtn = document.getElementById('vrCloseBtn');
+                if (vrCloseBtn) {
+                    vrCloseBtn.addEventListener('click', () => this.hideVRSelection());
+                }
+                
+                // Modo giroscópio
+                const gyroModeBtn = document.getElementById('gyroModeBtn');
+                if (gyroModeBtn) {
+                    gyroModeBtn.addEventListener('click', () => this.enterGyroMode());
+                }
+                
+                // Modo estereoscópico
+                const stereoModeBtn = document.getElementById('stereoModeBtn');
+                if (stereoModeBtn) {
+                    stereoModeBtn.addEventListener('click', () => this.enterStereoMode());
+                }
+                
+                // Botões de saída
+                const gyroExitBtn = document.getElementById('gyroExitBtn');
+                if (gyroExitBtn) {
+                    gyroExitBtn.addEventListener('click', () => this.exitVR());
+                }
+                
+                const stereoExitBtn = document.getElementById('stereoExitBtn');
+                if (stereoExitBtn) {
+                    stereoExitBtn.addEventListener('click', () => this.exitVR());
+                }
+                
+                // Eventos de orientação
+                this.setupOrientationEvents();
+            }
+            
+            setupOrientationEvents() {
+                // Verificar permissões iOS 13+
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    // iOS 13+ - necessário solicitar permissão
+                    console.log("📱 iOS detectado - permissão será solicitada");
+                } else if (window.DeviceOrientationEvent) {
+                    // Android e iOS mais antigos
+                    window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
+                    console.log("📱 Giroscópio configurado");
+                } else {
+                    console.log("⚠️ Giroscópio não disponível");
+                }
+            }
+            
+            async requestOrientationPermission() {
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    try {
+                        const permission = await DeviceOrientationEvent.requestPermission();
+                        if (permission === 'granted') {
+                            window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
+                            console.log("✅ Permissão de orientação concedida");
+                            return true;
+                        } else {
+                            console.log("❌ Permissão de orientação negada");
+                            this.showNotification("⚠️ Permissão de giroscópio necessária para VR");
+                            return false;
+                        }
+                    } catch (error) {
+                        console.error("Erro ao solicitar permissão:", error);
+                        return false;
+                    }
+                } else {
+                    // Já configurado anteriormente
+                    return true;
+                }
+            }
+            
+            handleOrientation(event) {
+                if (!this.isVRActive) return;
+                
+                this.orientation.alpha = event.alpha || 0;
+                this.orientation.beta = event.beta || 0;
+                this.orientation.gamma = event.gamma || 0;
+                
+                this.applyOrientationToCamera();
+            }
+            
+            applyOrientationToCamera() {
+                if (!this.isVRActive) return;
+                
+                const alpha = (this.orientation.alpha * Math.PI) / 180; // Z
+                const beta = (this.orientation.beta * Math.PI) / 180;   // X
+                const gamma = (this.orientation.gamma * Math.PI) / 180; // Y
+                
+                // Aplicar rotação baseada na orientação do dispositivo
+                const targetRotationY = -alpha;
+                const targetRotationX = Math.max(-Math.PI/3, Math.min(Math.PI/3, beta - Math.PI/2));
+                
+                if (this.currentMode === 'gyro') {
+                    window.targetRotationY = targetRotationY;
+                    window.targetRotationX = targetRotationX;
+                } else if (this.currentMode === 'stereo') {
+                    // Aplicar às câmeras estereoscópicas
+                    if (this.stereoCameraLeft && this.stereoCameraRight) {
+                        this.stereoCameraLeft.rotation.y = targetRotationY;
+                        this.stereoCameraLeft.rotation.x = targetRotationX;
+                        this.stereoCameraRight.rotation.y = targetRotationY;
+                        this.stereoCameraRight.rotation.x = targetRotationX;
+                    }
+                }
+            }
+            
+            checkDeviceSupport() {
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const hasOrientation = 'DeviceOrientationEvent' in window;
+                const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+                const isMobileScreen = window.innerWidth <= 1024;
+                
+                // Mostrar apenas em dispositivos móveis REAIS
+                if ((isMobile || isTouch || isMobileScreen) && hasOrientation) {
+                    this.vrButton.style.display = 'flex';
+                    console.log("📱 VR mobile disponível");
+                } else {
+                    this.vrButton.style.display = 'none';
+                    console.log("💻 Dispositivo desktop - VR desabilitado");
+                }
+            }
+            
+            showVRSelection() {
+                console.log("🥽 Abrindo seleção VR");
+                if (this.vrSelectionScreen) {
+                    this.vrSelectionScreen.style.display = 'flex';
+                    setTimeout(() => {
+                        this.vrSelectionScreen.classList.add('visible');
+                    }, 50);
+                }
+            }
+            
+            hideVRSelection() {
+                console.log("❌ Fechando seleção VR");
+                if (this.vrSelectionScreen) {
+                    this.vrSelectionScreen.classList.remove('visible');
+                    setTimeout(() => {
+                        this.vrSelectionScreen.style.display = 'none';
+                    }, 400);
+                }
+            }
+            
+            async enterGyroMode() {
+                console.log("📱 Entrando no modo VR livre (giroscópio)");
+                
+                // Solicitar permissão se necessário
+                const hasPermission = await this.requestOrientationPermission();
+                if (!hasPermission) {
+                    this.hideVRSelection();
+                    return;
+                }
+                
+                this.hideVRSelection();
+                this.currentMode = 'gyro';
+                this.isVRActive = true;
+                
+                // Configurar renderer para modo gyro
+                this.setupGyroRenderer();
+                
+                // Mostrar interface gyro
+                if (this.gyroMode) {
+                    this.gyroMode.classList.add('active');
+                }
+                
+                // Fullscreen se disponível
+                if (this.gyroMode.requestFullscreen) {
+                    this.gyroMode.requestFullscreen();
+                }
+                
+                // Travar orientação em landscape
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(e => console.log("Orientação não travada"));
+                }
+                
+                this.showNotification("📱 Modo VR Livre Ativado!<br>Mova o celular para explorar");
+                this.startGyroRenderLoop();
+            }
+            
+            async enterStereoMode() {
+                console.log("🥽 Entrando no modo VR estereoscópico");
+                
+                // Solicitar permissão se necessário
+                const hasPermission = await this.requestOrientationPermission();
+                if (!hasPermission) {
+                    this.hideVRSelection();
+                    return;
+                }
+                
+                this.hideVRSelection();
+                this.currentMode = 'stereo';
+                this.isVRActive = true;
+                
+                // Configurar renderizadores estereoscópicos
+                this.setupStereoRenderers();
+                
+                // Mostrar interface estereoscópica
+                if (this.stereoMode) {
+                    this.stereoMode.classList.add('active');
+                }
+                
+                // Fullscreen
+                if (this.stereoMode.requestFullscreen) {
+                    this.stereoMode.requestFullscreen();
+                }
+                
+                // Travar orientação em landscape
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(e => console.log("Orientação não travada"));
+                }
+                
+                // Mostrar crosshairs
+                const crosshairLeft = document.getElementById('stereoCrosshairLeft');
+                const crosshairRight = document.getElementById('stereoCrosshairRight');
+                if (crosshairLeft) crosshairLeft.classList.add('show');
+                if (crosshairRight) crosshairRight.classList.add('show');
+                
+                this.showNotification("🥽 Modo VR Imersivo Ativado!<br>Coloque no óculos VR e olhe nos pontos");
+                this.startStereoRenderLoop();
+                this.startGazeDetection();
+            }
+            
+            setupGyroRenderer() {
+                const gyroViewer = document.getElementById('gyroViewer');
+                if (!gyroViewer || !window.renderer) return;
+                
+                // Usar o renderer principal mas no container gyro
+                gyroViewer.innerHTML = '';
+                gyroViewer.appendChild(window.renderer.domElement);
+                
+                // Configurar status
+                const gyroStatus = document.getElementById('gyroStatus');
+                if (gyroStatus) {
+                    gyroStatus.textContent = "📱 Modo Livre Ativo - Mova o dispositivo";
+                }
+            }
+            
+            setupStereoRenderers() {
+                const canvasLeft = document.getElementById('stereoCanvasLeft');
+                const canvasRight = document.getElementById('stereoCanvasRight');
+                
+                if (!canvasLeft || !canvasRight || !window.THREE) return;
+                
+                try {
+                    const width = canvasLeft.clientWidth;
+                    const height = canvasLeft.clientHeight;
+                    
+                    // Renderer esquerdo
+                    this.stereoRendererLeft = new THREE.WebGLRenderer({ 
+                        canvas: canvasLeft,
+                        antialias: true 
+                    });
+                    this.stereoRendererLeft.setSize(width, height);
+                    
+                    // Renderer direito
+                    this.stereoRendererRight = new THREE.WebGLRenderer({ 
+                        canvas: canvasRight,
+                        antialias: true 
+                    });
+                    this.stereoRendererRight.setSize(width, height);
+                    
+                    // Câmeras com separação ocular
+                    this.stereoCameraLeft = window.camera.clone();
+                    this.stereoCameraRight = window.camera.clone();
+                    
+                    const eyeSeparation = 0.032; // 32mm separação típica
+                    this.stereoCameraLeft.position.x = -eyeSeparation;
+                    this.stereoCameraRight.position.x = eyeSeparation;
+                    
+                    console.log("✅ Renderizadores estereoscópicos configurados");
+                } catch (error) {
+                    console.error("❌ Erro ao configurar renderizadores:", error);
+                }
+            }
+            
+            startGyroRenderLoop() {
+                if (!this.isVRActive || this.currentMode !== 'gyro') return;
+                
+                // O loop principal já renderiza, apenas garantir que continue
+                requestAnimationFrame(() => this.startGyroRenderLoop());
+            }
+            
+            startStereoRenderLoop() {
+                if (!this.isVRActive || this.currentMode !== 'stereo') return;
+                
+                if (this.stereoRendererLeft && this.stereoRendererRight && window.scene) {
+                    // Sincronizar rotação com a câmera principal
+                    this.stereoCameraLeft.rotation.copy(window.camera.rotation);
+                    this.stereoCameraRight.rotation.copy(window.camera.rotation);
+                    
+                    // Renderizar para ambos os olhos
+                    this.stereoRendererLeft.render(window.scene, this.stereoCameraLeft);
+                    this.stereoRendererRight.render(window.scene, this.stereoCameraRight);
+                }
+                
+                requestAnimationFrame(() => this.startStereoRenderLoop());
+            }
+            
+            startGazeDetection() {
+                if (!this.isVRActive || this.currentMode !== 'stereo') return;
+                
+                this.detectGaze();
+                requestAnimationFrame(() => this.startGazeDetection());
+            }
+            
+            detectGaze() {
+                if (!this.isVRActive || !window.hotspotSystem || !window.raycaster || !window.mouse) return;
+                
+                // Usar centro da tela como ponto de olhar
+                window.mouse.x = 0;
+                window.mouse.y = 0;
+                window.raycaster.setFromCamera(window.mouse, window.camera);
+                
+                const hotspots = window.hotspotSystem.hotspots.map(h => h.marker).filter(m => m);
+                const intersects = window.raycaster.intersectObjects(hotspots);
+                
+                if (intersects.length > 0) {
+                    const target = intersects[0].object;
+                    
+                    if (target !== this.gazeTarget) {
+                        this.gazeTarget = target;
+                        this.gazeStartTime = Date.now();
+                        this.showGazeProgress();
+                    }
+                    
+                    const elapsed = Date.now() - this.gazeStartTime;
+                    const progress = Math.min(elapsed / this.gazeDuration, 1);
+                    
+                    this.updateGazeProgress(progress);
+                    
+                    if (progress >= 1) {
+                        this.activateGazeTarget();
+                    }
+                    
+                } else {
+                    this.clearGaze();
+                }
+            }
+            
+            showGazeProgress() {
+                const progressEl = document.getElementById('stereoProgress');
+                if (progressEl) {
+                    progressEl.classList.add('show');
+                }
+            }
+            
+            updateGazeProgress(progress) {
+                const progressBar = document.getElementById('stereoProgressBar');
+                if (progressBar) {
+                    progressBar.style.width = (progress * 100) + '%';
+                }
+            }
+            
+            clearGaze() {
+                this.gazeTarget = null;
+                this.gazeStartTime = 0;
+                
+                const progressEl = document.getElementById('stereoProgress');
+                const progressBar = document.getElementById('stereoProgressBar');
+                
+                if (progressEl) progressEl.classList.remove('show');
+                if (progressBar) progressBar.style.width = '0%';
+            }
+            
+            activateGazeTarget() {
+                if (this.gazeTarget && this.gazeTarget.userData.hotspotData) {
+                    const data = this.gazeTarget.userData.hotspotData;
+                    console.log(`🥽 VR Gaze Navigation: ${data.label}`);
+                    
+                    // Vibração se disponível
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                    }
+                    
+                    // Ativar hotspot
+                    if (window.hotspotSystem) {
+                        window.hotspotSystem.activateHotspot(data);
+                    }
+                    
+                    this.clearGaze();
+                }
+            }
+            
+            exitVR() {
+                console.log("🚪 Saindo do modo VR");
+                
+                this.isVRActive = false;
+                this.currentMode = null;
+                this.clearGaze();
+                
+                // Ocultar interfaces VR
+                if (this.gyroMode) this.gyroMode.classList.remove('active');
+                if (this.stereoMode) this.stereoMode.classList.remove('active');
+                
+                // Restaurar renderer principal
+                const viewer = document.getElementById('viewer');
+                if (viewer && window.renderer) {
+                    viewer.innerHTML = '';
+                    viewer.appendChild(window.renderer.domElement);
+                }
+                
+                // Sair do fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+                
+                // Ocultar crosshairs e progress
+                const elements = ['stereoCrosshairLeft', 'stereoCrosshairRight', 'stereoProgress'];
+                elements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.remove('show');
+                });
+                
+                this.showNotification("📱 VR Desativado");
+            }
+            
+            showNotification(message) {
+                if (this.vrNotification) {
+                    this.vrNotification.innerHTML = message;
+                    this.vrNotification.classList.add('show');
+                    
+                    setTimeout(() => {
+                        this.vrNotification.classList.remove('show');
+                    }, 3000);
+                }
+            }
+        }
+
+        // ============= VARIÁVEIS GLOBAIS ============= 
+        let scene, camera, renderer, sphere;
+        let isMouseDown = false;
+        let mouseX = 0, mouseY = 0;
+        let targetRotationX = 0, targetRotationY = 0;
+        let rotationX = 0, rotationY = 0;
+        let currentRoom = 1;
+        let hotspotSystem;
+        let raycaster, mouse;
+        let vrSystem;
+        
+        const rooms = [
+            { texturePath: "HOME.jpg", name: "Home", description: "Hall de entrada" },
+            { texturePath: "EXTERIOR1.jpg", name: "Exterior 1", description: "Área externa frontal" },
+            { texturePath: "EXTERIOR2.jpg", name: "Exterior 2", description: "Área lateral" },
+            { texturePath: "EXTERIOR3.jpg", name: "Exterior 3", description: "Quintal e lazer" },
+            { texturePath: "EXTERIOR4.jpg", name: "Exterior 4", description: "Área gourmet" },
+            { texturePath: "EXTERIOR5.jpg", name: "Exterior 5", description: "Fundos da propriedade" },
+            { texturePath: "EXTERIOR6.jpg", name: "Exterior 6", description: "Varanda externa" },
+            { texturePath: "SALA1.jpg", name: "Sala 1", description: "Sala de estar principal" },
+            { texturePath: "SALA2.jpg", name: "Sala 2", description: "Sala de jantar" },
+            { texturePath: "SALA3.jpg", name: "Sala 3", description: "Sala de TV" },
+            { texturePath: "COZINHA.jpg", name: "Cozinha", description: "Cozinha equipada" },
+            { texturePath: "QUARTO1.jpg", name: "Suíte 1", description: "Quarto master" },
+            { texturePath: "QUARTO2.jpg", name: "Suíte 2", description: "Quarto de hóspedes" },
+            { texturePath: "BANHEIROQUARTO2.jpg", name: "Banheiro Suíte 2", description: "Banheiro da suíte 2" },
+            { texturePath: "BANHEIROSAUNA.jpg", name: "Banheiro Sauna", description: "Banheiro com sauna" },
+            { texturePath: "DESPENSA.jpg", name: "Despensa", description: "Despensa e armazenamento" },
+            { texturePath: "LAVANDERIA.jpg", name: "Lavanderia", description: "Área de serviço" },
+            { texturePath: "LAVABO.jpg", name: "Lavabo", description: "Banheiro social" }
+        ];
+
+        // Variáveis do menu da planta
+        let floorPlanMenu = {
+            isOpen: false,
+            currentRoom: 1
+        };
+
+        // ============= SISTEMA DA PLANTA BAIXA ============= 
+        function initializeFloorPlanMenu() {
+            const toggleBtn = document.getElementById('floorPlanToggle');
+            const closeBtn = document.getElementById('closeMenuBtn');
+            const overlay = document.getElementById('menuOverlay');
+            const hotspots = document.querySelectorAll('.plan-hotspot');
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    toggleFloorPlanMenu();
+                });
+            }
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function() {
+                    closeFloorPlanMenu();
+                });
+            }
+
+            if (overlay) {
+                overlay.addEventListener('click', function() {
+                    closeFloorPlanMenu();
+                });
+            }
+
+            hotspots.forEach(hotspot => {
+                const roomIndex = parseInt(hotspot.dataset.room);
+                hotspot.addEventListener('click', function() {
+                    navigateToRoomFromPlan(roomIndex);
+                });
+            });
+
+            updateFloorPlanCurrentRoom(currentRoom);
+        }
+
+        function toggleFloorPlanMenu() {
+            if (floorPlanMenu.isOpen) {
+                closeFloorPlanMenu();
+            } else {
+                openFloorPlanMenu();
+            }
+        }
+
+        function openFloorPlanMenu() {
+            const menu = document.getElementById('floorPlanMenu');
+            const overlay = document.getElementById('menuOverlay');
+            const toggleBtn = document.getElementById('floorPlanToggle');
+            
+            menu.classList.add('visible');
+            overlay.classList.add('visible');
+            toggleBtn.classList.add('active');
+            toggleBtn.title = 'Fechar Planta Baixa';
+            
+            floorPlanMenu.isOpen = true;
+            console.log('🗺️ Planta baixa aberta');
+        }
+
+        function closeFloorPlanMenu() {
+            const menu = document.getElementById('floorPlanMenu');
+            const overlay = document.getElementById('menuOverlay');
+            const toggleBtn = document.getElementById('floorPlanToggle');
+            
+            menu.classList.remove('visible');
+            overlay.classList.remove('visible');
+            toggleBtn.classList.remove('active');
+            toggleBtn.title = 'Abrir Planta Baixa';
+            
+            floorPlanMenu.isOpen = false;
+            console.log('🗺️ Planta baixa fechada');
+        }
+
+        function navigateToRoomFromPlan(roomIndex) {
+            if (roomIndex === currentRoom) return;
+            
+            console.log(`🗺️ Navegando via planta para: ${rooms[roomIndex].name}`);
+            changeRoom(roomIndex);
+            closeFloorPlanMenu();
+        }
+
+        function updateFloorPlanCurrentRoom(roomIndex) {
+            document.querySelectorAll('.plan-hotspot').forEach(hotspot => {
+                hotspot.classList.remove('active');
+            });
+            
+            const currentHotspot = document.querySelector(`[data-room="${roomIndex}"]`);
+            if (currentHotspot) {
+                currentHotspot.classList.add('active');
+            }
+            
+            floorPlanMenu.currentRoom = roomIndex;
+        }
+
+        // ============= SISTEMA PRINCIPAL ============= 
+        function init() {
+            console.log("🎬 Inicializando Three.js...");
+            
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            
+            if (typeof THREE !== 'undefined') {
+                raycaster = new THREE.Raycaster();
+                mouse = new THREE.Vector2();
+            }
+            
+            const viewer = document.getElementById('viewer');
+            if (viewer) {
+                viewer.innerHTML = '';
+                viewer.appendChild(renderer.domElement);
+            }
+            
+            hotspotSystem = new InteractiveHotspotSystem(scene, camera, renderer);
+            vrSystem = new AdvancedVRSystem();
+            vrSystem.init();
+
+            createEnvironment();
+            setupControls();
+
+            setTimeout(() => {
+                const loading = document.getElementById('loading');
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+                console.log("✅ Loading concluído");
+            }, 2000);
+
+            initializeFloorPlanMenu();
+            animate();
+            console.log("✅ Tour inicializado!");
+        }
+
+        function createEnvironment() {
+            console.log(`🌍 Criando ambiente: ${rooms[currentRoom].name}`);
+            
+            const geometry = new THREE.SphereGeometry(500, 32, 32);
+            geometry.scale(-1, 1, 1);
+
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load(
+                rooms[currentRoom].texturePath,
+                (texture) => {
+                    console.log("✅ Textura carregada:", rooms[currentRoom].texturePath);
+                    if (sphere) {
+                        sphere.geometry.dispose();
+                        sphere.material.dispose();
+                        scene.remove(sphere);
+                    }
+                    const material = new THREE.MeshBasicMaterial({ map: texture });
+                    sphere = new THREE.Mesh(geometry, material);
+                    scene.add(sphere);
+                },
+                undefined,
+                (error) => {
+                    console.log("⚠️ Usando textura placeholder");
+                    const texture = createPlaceholderTexture();
+                    if (sphere) {
+                        sphere.geometry.dispose();
+                        sphere.material.dispose();
+                        scene.remove(sphere);
+                    }
+                    const material = new THREE.MeshBasicMaterial({ map: texture });
+                    sphere = new THREE.Mesh(geometry, material);
+                    scene.add(sphere);
+                }
+            );
+        }
+
+        function createPlaceholderTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2048;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.5, '#98FB98');
+            gradient.addColorStop(1, '#90EE90');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.font = 'Bold 100px Arial';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(rooms[currentRoom].name, canvas.width / 2, canvas.height / 2);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function setupControls() {
+
+            console.log("🔍 Debug Mobile:");
+console.log("- User Agent:", navigator.userAgent);
+console.log("- Touch Support:", 'ontouchstart' in window);
+console.log("- Max Touch Points:", navigator.maxTouchPoints);
+console.log("- Screen Width:", window.innerWidth);
+
+// Mostrar quando hotspots são criados
+if (hotspotSystem) {
+    console.log("🎯 Hotspots ativos:", hotspotSystem.hotspots.length);
+}
+            const viewer = document.getElementById('viewer');
+            let currentHoveredHotspot = null;
+            
+            // Variáveis para controlar o estado do mouse de forma mais robusta
+            let isDragging = false;
+            let hasMouseMoved = false;
+            let lastMouseX = 0;
+            let lastMouseY = 0;
+            
+            function showHotspotTooltip(hotspot, mouseX, mouseY) {
+                if (hotspot && hotspot.tooltip) {
+                    hotspot.tooltip.textContent = hotspot.data.label;
+                    hotspot.tooltip.style.left = (mouseX + 15) + 'px';
+                    hotspot.tooltip.style.top = (mouseY - 50) + 'px';
+                    hotspot.tooltip.classList.add('visible');
+                }
+            }
+            
+            function hideHotspotTooltip(hotspot) {
+                if (hotspot && hotspot.tooltip) {
+                    hotspot.tooltip.classList.remove('visible');
+                }
+            }
+            
+            function onHotspotClick(event) {
+                if (!raycaster || !mouse || !hotspotSystem) return false;
+                
+                const rect = viewer.getBoundingClientRect();
+                
+                // Usar coordenadas do touch ou mouse
+                const clientX = event.clientX || (event.touches && event.touches[0] ? event.touches[0].clientX : event.changedTouches[0].clientX);
+                const clientY = event.clientY || (event.touches && event.touches[0] ? event.touches[0].clientY : event.changedTouches[0].clientY);
+                
+                mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+                
+                raycaster.setFromCamera(mouse, camera);
+                
+                const hotspotMeshes = hotspotSystem.hotspots.map(h => h.marker).filter(m => m);
+                const intersects = raycaster.intersectObjects(hotspotMeshes);
+                
+                if (intersects.length > 0) {
+                    const hotspotData = intersects[0].object.userData.hotspotData;
+                    if (hotspotData) {
+                        console.log(`🖱️ Hotspot ativado: ${hotspotData.label}`);
+                        hotspotSystem.activateHotspot(hotspotData);
+                        return true;
+                    }
+                }
+                return false;
+            }
+            
+            // EVENTOS DE MOUSE - CORRIGIDOS
+            viewer.addEventListener('mousedown', (e) => {
+                // Não processar se VR estiver ativo
+                if (vrSystem && vrSystem.isVRActive) return;
+                
+                e.preventDefault();
+                isDragging = true;
+                isMouseDown = true;
+                hasMouseMoved = false;
+                
+                lastMouseX = mouseX = e.clientX;
+                lastMouseY = mouseY = e.clientY;
+                
+                viewer.style.cursor = 'grabbing';
+                
+                // Ocultar tooltips durante drag
+                if (currentHoveredHotspot) {
+                    hideHotspotTooltip(currentHoveredHotspot);
+                    currentHoveredHotspot = null;
+                }
+            });
+            
+            viewer.addEventListener('mousemove', (e) => {
+                // Não processar se VR estiver ativo
+                if (vrSystem && vrSystem.isVRActive) return;
+                
+                const currentMouseX = e.clientX;
+                const currentMouseY = e.clientY;
+                
+                if (isDragging && isMouseDown) {
+                    // DRAGGING - Calcular rotação
+                    hasMouseMoved = true;
+                    
+                    const deltaX = currentMouseX - lastMouseX;
+                    const deltaY = currentMouseY - lastMouseY;
+                    
+                    // Aplicar rotação apenas se há movimento significativo
+                    if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+                        targetRotationY += deltaX * 0.005;
+                        targetRotationX += deltaY * 0.005;
+                        targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+                    }
+                    
+                    lastMouseX = currentMouseX;
+                    lastMouseY = currentMouseY;
+                    
+                } else if (!isDragging) {
+                    // HOVER - Detectar hotspots
+                    if (raycaster && mouse && hotspotSystem) {
+                        const rect = viewer.getBoundingClientRect();
+                        mouse.x = ((currentMouseX - rect.left) / rect.width) * 2 - 1;
+                        mouse.y = -((currentMouseY - rect.top) / rect.height) * 2 + 1;
+                        
+                        raycaster.setFromCamera(mouse, camera);
+                        const hotspotMeshes = hotspotSystem.hotspots.map(h => h.marker).filter(m => m);
+                        const intersects = raycaster.intersectObjects(hotspotMeshes);
+                        
+                        if (intersects.length > 0) {
+                            const hoveredHotspot = hotspotSystem.hotspots.find(h => h.marker === intersects[0].object);
+                            
+                            if (hoveredHotspot !== currentHoveredHotspot) {
+                                if (currentHoveredHotspot) {
+                                    hideHotspotTooltip(currentHoveredHotspot);
+                                }
+                                
+                                currentHoveredHotspot = hoveredHotspot;
+                                showHotspotTooltip(hoveredHotspot, currentMouseX, currentMouseY);
+                            } else if (currentHoveredHotspot) {
+                                currentHoveredHotspot.tooltip.style.left = (currentMouseX + 15) + 'px';
+                                currentHoveredHotspot.tooltip.style.top = (currentMouseY - 50) + 'px';
+                            }
+                            
+                            viewer.style.cursor = 'pointer';
+                        } else {
+                            if (currentHoveredHotspot) {
+                                hideHotspotTooltip(currentHoveredHotspot);
+                                currentHoveredHotspot = null;
+                            }
+                            viewer.style.cursor = 'grab';
+                        }
+                    }
+                }
+            });
+            
+            viewer.addEventListener('mouseup', (e) => {
+                // Não processar se VR estiver ativo
+                if (vrSystem && vrSystem.isVRActive) return;
+                
+                e.preventDefault();
+                
+                // Verificar se foi um clique (sem movimento significativo)
+                if (isDragging && !hasMouseMoved) {
+                    const deltaX = Math.abs(e.clientX - mouseX);
+                    const deltaY = Math.abs(e.clientY - mouseY);
+                    
+                    if (deltaX < 5 && deltaY < 5) {
+                        onHotspotClick(e);
+                    }
+                }
+                
+                // Resetar estados
+                isDragging = false;
+                isMouseDown = false;
+                hasMouseMoved = false;
+                viewer.style.cursor = 'grab';
+            });
+            
+            // Eventos para capturar quando o mouse sai da área
+            viewer.addEventListener('mouseleave', () => {
+                // Resetar todos os estados quando mouse sai
+                isDragging = false;
+                isMouseDown = false;
+                hasMouseMoved = false;
+                viewer.style.cursor = 'grab';
+                
+                if (currentHoveredHotspot) {
+                    hideHotspotTooltip(currentHoveredHotspot);
+                    currentHoveredHotspot = null;
+                }
+            });
+            
+            // Capturar mouseup global para evitar estados inconsistentes
+            document.addEventListener('mouseup', () => {
+                if (isDragging || isMouseDown) {
+                    isDragging = false;
+                    isMouseDown = false;
+                    hasMouseMoved = false;
+                    viewer.style.cursor = 'grab';
+                }
+            });
+            
+            // Wheel event
+            viewer.addEventListener('wheel', (e) => {
+                // Não processar se VR estiver ativo
+                if (vrSystem && vrSystem.isVRActive) return;
+                
+                e.preventDefault();
+                camera.fov += e.deltaY * 0.05;
+                camera.fov = Math.max(10, Math.min(100, camera.fov));
+                camera.updateProjectionMatrix();
+            });
+
+            // Touch events para mobile - MELHORADOS
+            let initialTouchX = 0, initialTouchY = 0;
+            let touchStartTime = 0;
+            let isTouchDragging = false;
+            
+            viewer.addEventListener('touchstart', (e) => {
+                // Não processar se VR estiver ativo
+                if (vrSystem && vrSystem.isVRActive) return;
+                
+                if (e.touches.length === 1) {
+                    const touch = e.touches[0];
+                    isTouchDragging = true;
+                    isMouseDown = true;
+                    mouseX = initialTouchX = touch.clientX;
+                    mouseY = initialTouchY = touch.clientY;
+                    touchStartTime = Date.now();
+                    hasMouseMoved = false;
+                    e.preventDefault();
+                }
+            });
+
+            viewer.addEventListener('touchmove', (e) => {
+                // Não processar se VR estiver ativo
+                if (vrSystem && vrSystem.isVRActive) return;
+                
+                if (e.touches.length === 1 && isTouchDragging) {
+                    const touch = e.touches[0];
+                    const deltaX = touch.clientX - mouseX;
+                    const deltaY = touch.clientY - mouseY;
+                    
+                    hasMouseMoved = true;
+                    
+                    targetRotationY += deltaX * 0.005;
+                    targetRotationX += deltaY * 0.005;
+                    targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+                    
+                    mouseX = touch.clientX;
+                    mouseY = touch.clientY;
+                    e.preventDefault();
+                }
+            });
+
+            viewer.addEventListener('touchend', (e) => {
+                // Não processar se VR estiver ativo
+                if (vrSystem && vrSystem.isVRActive) return;
+                
+                if (isTouchDragging && e.changedTouches.length === 1) {
+                    const touch = e.changedTouches[0];
+                    const deltaX = Math.abs(touch.clientX - initialTouchX);
+                    const deltaY = Math.abs(touch.clientY - initialTouchY);
+                    const touchDuration = Date.now() - touchStartTime;
+                    
+                    // Detectar tap (toque rápido sem movimento)
+                    if (deltaX < 15 && deltaY < 15 && touchDuration < 300 && !hasMouseMoved) {
+                        console.log("📱 Tap detectado no mobile");
+                        onHotspotClick(touch);
+                    }
+                }
+                
+                // Resetar estados touch
+                isTouchDragging = false;
+                isMouseDown = false;
+                hasMouseMoved = false;
+            });
+
+            // Prevenir zoom indesejado
+            viewer.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 1) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+
+            // Gesture events para iOS
+            viewer.addEventListener('gesturestart', (e) => {
+                e.preventDefault();
+            });
+
+            viewer.addEventListener('gesturechange', (e) => {
+                e.preventDefault();
+            });
+
+            viewer.addEventListener('gestureend', (e) => {
+                e.preventDefault();
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                
+                if (hotspotSystem) {
+                    hotspotSystem.updatePositions();
+                }
+            });
+    // ============= CORREÇÃO MOBILE - VERSÃO SIMPLIFICADA =============
+const isMobileDevice = window.innerWidth <= 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+if (isMobileDevice) {
+    console.log("📱 Modo mobile detectado - aplicando correções");
+    
+    let mobileTouchStart = { x: 0, y: 0, time: 0 };
+    let isMobileDragging = false;
+    
+    // Substituir touchend existente por um otimizado
+    viewer.addEventListener('touchend', (e) => {
+        if (vrSystem && vrSystem.isVRActive) return;
+        if (e.changedTouches.length !== 1) return;
+        
+        const touch = e.changedTouches[0];
+        const touchDuration = Date.now() - mobileTouchStart.time;
+        const deltaX = Math.abs(touch.clientX - mobileTouchStart.x);
+        const deltaY = Math.abs(touch.clientY - mobileTouchStart.y);
+        
+        // Se foi um tap rápido e sem movimento
+        if (!isMobileDragging && touchDuration < 400 && deltaX < 30 && deltaY < 30) {
+            console.log("📱 TAP MOBILE DETECTADO!");
+            
+            // Força a detecção do hotspot
+            const rect = viewer.getBoundingClientRect();
+            mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const hotspotMeshes = hotspotSystem.hotspots.map(h => h.marker).filter(m => m);
+            const intersects = raycaster.intersectObjects(hotspotMeshes);
+            
+            if (intersects.length > 0) {
+                const hotspotData = intersects[0].object.userData.hotspotData;
+                if (hotspotData) {
+                    console.log(`🎯 HOTSPOT MOBILE ATIVADO: ${hotspotData.label}`);
+                    hotspotSystem.activateHotspot(hotspotData);
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }
+        }
+        
+        isMobileDragging = false;
+    }, true); // true = captura na fase de captura
+    
+    // Atualizar touchstart para salvar posição inicial
+    viewer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            mobileTouchStart = {
+                x: touch.clientX,
+                y: touch.clientY,
+                time: Date.now()
+            };
+            isMobileDragging = false;
+        }
+    }, true);
+    
+    // Detectar quando começou a arrastar
+    viewer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const deltaX = Math.abs(touch.clientX - mobileTouchStart.x);
+            const deltaY = Math.abs(touch.clientY - mobileTouchStart.y);
+            
+            if (deltaX > 15 || deltaY > 15) {
+                isMobileDragging = true;
+            }
+        }
+    }, true);
+
+        
+
+    viewer.addEventListener('touchstart', (e) => {
+        if (vrSystem && vrSystem.isVRActive) return;
+        
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            isMobileTouchDragging = true;
+            isMouseDown = true;
+            mouseX = mobileInitialTouchX = touch.clientX;
+            mouseY = mobileInitialTouchY = touch.clientY;
+            mobileTouchStartTime = Date.now();
+            mobileTouchHasMoved = false;
+            e.preventDefault();
+            console.log("📱 Mobile touch start");
+        }
+    });
+
+    viewer.addEventListener('touchmove', (e) => {
+        if (vrSystem && vrSystem.isVRActive) return;
+        
+        if (e.touches.length === 1 && isMobileTouchDragging) {
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - mouseX;
+            const deltaY = touch.clientY - mouseY;
+            
+            // Marcar movimento se passou do threshold MAIOR para mobile
+            if (Math.abs(touch.clientX - mobileInitialTouchX) > 20 || Math.abs(touch.clientY - mobileInitialTouchY) > 20) {
+                mobileTouchHasMoved = true;
+            }
+            
+            if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+                targetRotationY += deltaX * 0.005;
+                targetRotationX += deltaY * 0.005;
+                targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+            }
+            
+            mouseX = touch.clientX;
+            mouseY = touch.clientY;
+            e.preventDefault();
+        }
+    });
+
+    viewer.addEventListener('touchend', (e) => {
+        if (vrSystem && vrSystem.isVRActive) return;
+        
+        if (isMobileTouchDragging && e.changedTouches.length === 1) {
+            const touch = e.changedTouches[0];
+            const deltaX = Math.abs(touch.clientX - mobileInitialTouchX);
+            const deltaY = Math.abs(touch.clientY - mobileInitialTouchY);
+            const touchDuration = Date.now() - mobileTouchStartTime;
+            
+            // Detectar tap apenas se NÃO houve movimento e foi rápido
+            if (!mobileTouchHasMoved && deltaX < 25 && deltaY < 25 && touchDuration < 500) {
+                console.log("📱 Mobile tap detectado - ativando hotspot");
+                
+                // Forçar detecção de hotspot no mobile
+                if (raycaster && mouse && hotspotSystem) {
+                    const rect = viewer.getBoundingClientRect();
+                    mouse.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+                    
+                    raycaster.setFromCamera(mouse, camera);
+                    const hotspotMeshes = hotspotSystem.hotspots.map(h => h.marker).filter(m => m);
+                    const intersects = raycaster.intersectObjects(hotspotMeshes);
+                    
+                    if (intersects.length > 0) {
+                        const hotspotData = intersects[0].object.userData.hotspotData;
+                        if (hotspotData) {
+                            console.log(`📱 Mobile hotspot ativado: ${hotspotData.label}`);
+                            hotspotSystem.activateHotspot(hotspotData);
+                        }
+                    }
+                }
+            }
+        }
+        
+        isMobileTouchDragging = false;
+        isMouseDown = false;
+        mobileTouchHasMoved = false;
+    });
+}
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Aplicar rotação suave apenas se VR não estiver ativo
+            if (!vrSystem || !vrSystem.isVRActive) {
+                rotationX += (targetRotationX - rotationX) * 0.1;
+                rotationY += (targetRotationY - rotationY) * 0.1;
+
+                camera.rotation.order = 'YXZ';
+                camera.rotation.y = rotationY;
+                camera.rotation.x = rotationX;
+                camera.rotation.z = 0;
+            }
+
+            if (hotspotSystem) {
+                hotspotSystem.animate();
+                hotspotSystem.updatePositions();
+            }
+
+            // Renderizar apenas se não estiver em modo VR estereoscópico
+            if (!vrSystem || vrSystem.currentMode !== 'stereo') {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function changeRoom(index) {
+            if (index >= 0 && index < rooms.length && index !== currentRoom) {
+                console.log(`🚪 Mudando para: ${rooms[index].name}`);
+                currentRoom = index;
+                createEnvironment();
+                updateRoomInfo();
+                resetView();
+                
+                updateFloorPlanCurrentRoom(currentRoom);
+                
+                if (hotspotSystem) {
+                    setTimeout(() => {
+                        hotspotSystem.createHotspots(currentRoom);
+                    }, 500);
+                }
+            }
+        }
+
+        function updateRoomInfo() {
+            const room = rooms[currentRoom];
+            document.querySelector('.room-title').textContent = room.name;
+            document.querySelector('.room-description').textContent = room.description;
+        }
+
+        function resetView() {
+            // Resetar apenas se não estiver em VR
+            if (!vrSystem || !vrSystem.isVRActive) {
+                targetRotationX = 0;
+                targetRotationY = 0;
+                camera.fov = 75;
+                camera.updateProjectionMatrix();
+                console.log("🔄 Visão resetada");
+            }
+        }
+
+        // ============= INICIALIZAÇÃO PRINCIPAL =============
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("📱 DOM carregado");
+            
+            if (typeof THREE === 'undefined') {
+                console.error("❌ THREE.js não carregou!");
+                alert("Erro: THREE.js não foi carregado.");
+                return;
+            }
+            
+            const startBtn = document.getElementById('start-tour-btn');
+            if (!startBtn) {
+                console.error("❌ Botão iniciar não encontrado!");
+                return;
+            }
+            
+            startBtn.addEventListener('click', () => {
+                console.log("🎬 Iniciando tour...");
+                
+                const splash = document.getElementById('splash-screen');
+                const container = document.getElementById('container');
+                
+                if (splash) {
+                    splash.style.opacity = '0';
+                    splash.style.visibility = 'hidden';
+                    splash.classList.add('hidden');
+                }
+                
+                if (container) {
+                    container.style.display = 'block';
+                }
+                
+                setTimeout(() => {
+                    try {
+                        init();
+                        updateRoomInfo();
+                        
+                        setTimeout(() => {
+                            if (hotspotSystem) {
+                                hotspotSystem.createHotspots(currentRoom);
+                                console.log("✅ Hotspots iniciais criados!");
+                            }
+                        }, 1000);
+                        
+                    } catch (error) {
+                        console.error("❌ Erro na inicialização:", error);
+                        alert("Erro ao inicializar o tour virtual.");
+                    }
+                }, 500);
+            });
+            
+            // Eventos para sair do fullscreen
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement && vrSystem && vrSystem.isVRActive) {
+                    vrSystem.exitVR();
+                }
+            });
+        });
+
+        console.log("📜 Script VR aprimorado carregado com sucesso!");
+
+    </script>
+</body>
+</html>
